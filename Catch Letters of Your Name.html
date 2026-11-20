@@ -1,0 +1,949 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>Catch Letters of Your Name</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <style>
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2.25rem; }
+
+      :root {
+        --bg: #f4f6fb;
+        --surface: #ffffff;
+        --surface-2: #e9edf6;
+        --ink: #17203a;
+        --ink-soft: #4a5570;
+        --line: #d5dbea;
+        --accent: #ff5a3c;
+        --accent-ink: #ffffff;
+        --teal: #0e9594;
+        --amber: #ffb627;
+        --good: #1d9e62;
+        --bad: #e5484d;
+        --stage: #10182e;
+        --stage-2: #182540;
+        --shadow: 0 10px 30px rgba(23, 32, 58, .10);
+        --radius: 14px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0c1120;
+          --surface: #151d33;
+          --surface-2: #1d2742;
+          --ink: #eef1fa;
+          --ink-soft: #a7b1c9;
+          --line: #2b3757;
+          --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Nunito", system-ui, sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 16px 40px; }
+
+      h1 {
+        font-family: "Baloo 2", "Nunito", sans-serif;
+        font-size: clamp(1.7rem, 4.5vw, 2.6rem);
+        line-height: 1.08;
+        margin: 6px 0 6px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+      h1 .hl { color: var(--accent); }
+      .lede { color: var(--ink-soft); max-width: 62ch; margin: 0 0 18px; font-size: 1.02rem; }
+      .lede strong { color: var(--ink); }
+
+      /* ---------- Setup panel ---------- */
+      .setup {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 16px;
+        display: grid;
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+      @media (min-width: 760px) {
+        .setup { grid-template-columns: 1.4fr 1fr auto; align-items: end; }
+      }
+      .field label, .field .lab {
+        display: block;
+        font-weight: 800;
+        font-size: .82rem;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+        margin-bottom: 6px;
+      }
+      #nameInput {
+        width: 100%;
+        font-family: "Baloo 2", sans-serif;
+        font-size: 1.35rem;
+        font-weight: 700;
+        padding: 8px 14px;
+        border: 2px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--ink);
+        text-transform: uppercase;
+        letter-spacing: .12em;
+      }
+      #nameInput:focus { outline: none; border-color: var(--teal); }
+      .hint { font-size: .85rem; color: var(--ink-soft); margin-top: 5px; }
+      .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+      .seg label {
+        display: inline-flex; align-items: center; gap: 7px;
+        min-height: 2.25rem; padding: 6px 14px;
+        border: 2px solid var(--line); border-radius: 999px;
+        font-weight: 800; font-size: .92rem; color: var(--ink-soft);
+        background: var(--surface);
+        cursor: pointer; margin: 0;
+        text-transform: none; letter-spacing: 0;
+      }
+      .seg input { width: 17px; height: 17px; margin: 0; accent-color: var(--accent); cursor: pointer; flex: none; }
+      .seg label.on { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+      .seg label:focus-within { outline: 3px solid var(--teal); outline-offset: 2px; }
+      .camrow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+      .switch {
+        display: inline-flex; align-items: center; gap: 9px;
+        cursor: pointer; font-weight: 700; min-height: 2.25rem; padding: 4px 2px;
+      }
+      .switch input { width: 20px; height: 20px; accent-color: var(--teal); cursor: pointer; }
+      .btn {
+        font-family: "Baloo 2", sans-serif;
+        font-weight: 800; font-size: 1.05rem;
+        border: none; border-radius: 10px; cursor: pointer;
+        padding: 9px 22px; min-height: 2.75rem;
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      }
+      .btn-primary { background: var(--accent); color: var(--accent-ink); }
+      .btn-primary:hover { filter: brightness(1.07); }
+      .btn-ghost { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); font-size: .95rem; padding: 7px 14px; min-height: 2.5rem; }
+      .btn:disabled { opacity: .55; cursor: wait; }
+
+      /* ---------- Layout ---------- */
+      .layout { display: grid; gap: 16px; }
+      @media (min-width: 900px) {
+        .layout { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
+      }
+
+      /* ---------- HUD ---------- */
+      .hud {
+        display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+        margin-bottom: 10px;
+      }
+      .stat {
+        background: var(--surface); border: 1px solid var(--line);
+        border-radius: 999px; padding: 5px 14px;
+        font-weight: 800; font-size: .92rem;
+        display: inline-flex; gap: 7px; align-items: center; min-height: 2.25rem;
+      }
+      .stat .k { color: var(--ink-soft); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+      .hearts { color: var(--bad); letter-spacing: 2px; font-size: 1rem; }
+      .hearts .off { color: var(--line); }
+      .hud .spacer { flex: 1; }
+      .iconbtn {
+        width: 2.5rem; height: 2.5rem; border-radius: 50%;
+        border: 1px solid var(--line); background: var(--surface);
+        color: var(--ink); cursor: pointer; font-size: 1.05rem;
+        display: inline-flex; align-items: center; justify-content: center;
+      }
+
+      .progress-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+      .progress-row .lab { font-weight: 800; font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); }
+      .tiles { display: flex; gap: 6px; flex-wrap: wrap; }
+      .tile {
+        width: 40px; height: 46px; border-radius: 9px;
+        display: flex; align-items: center; justify-content: center;
+        font-family: "Baloo 2", sans-serif; font-weight: 800; font-size: 1.3rem;
+        background: var(--surface); border: 2px solid var(--line); color: var(--ink-soft);
+      }
+      .tile.done { background: var(--teal); border-color: var(--teal); color: #fff; }
+      .tile.next { border-color: var(--amber); color: var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 35%, transparent); animation: pulse 1s ease-in-out infinite; }
+      @keyframes pulse { 50% { transform: scale(1.07); } }
+      @media (prefers-reduced-motion: reduce) { .tile.next { animation: none; } }
+      .target-note { font-size: .9rem; color: var(--ink-soft); font-weight: 700; }
+
+      /* ---------- Stage ---------- */
+      .stage-shell {
+        position: relative;
+        border-radius: 18px;
+        overflow: hidden;
+        background: var(--stage);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--line);
+      }
+      canvas#game { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+      .watermark {
+        position: absolute; right: 12px; bottom: 10px;
+        font-family: "Baloo 2", sans-serif; font-weight: 800;
+        font-size: .8rem; letter-spacing: .14em;
+        color: rgba(255,255,255,.55);
+        pointer-events: none; user-select: none;
+        text-transform: uppercase;
+      }
+      .watermark b { color: rgba(255,182,39,.85); font-weight: 800; }
+      .ctrl-badge {
+        position: absolute; left: 12px; bottom: 10px;
+        background: rgba(10, 15, 30, .55); color: #dfe6f5;
+        font-size: .78rem; font-weight: 700;
+        padding: 5px 11px; border-radius: 999px; pointer-events: none;
+        display: inline-flex; gap: 6px; align-items: center;
+      }
+      .ctrl-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #5b6a8c; }
+      .ctrl-badge.on .dot { background: #2fe08a; }
+
+      .overlay {
+        position: absolute; inset: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center; padding: 22px;
+        background: rgba(9, 13, 26, .72);
+        color: #f2f5fc; gap: 8px;
+      }
+      .overlay[hidden] { display: none; }
+      .overlay h2 { font-family: "Baloo 2", sans-serif; font-size: clamp(1.5rem, 4vw, 2.2rem); margin: 0; line-height: 1.1; }
+      .overlay p { margin: 0; color: #b9c4dc; max-width: 44ch; }
+      .overlay .big-score { font-family: "Baloo 2", sans-serif; font-size: 2.6rem; font-weight: 800; color: var(--amber); line-height: 1; }
+      .overlay .wm { margin-top: 10px; font-size: .75rem; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.5); font-weight: 800; }
+      .count-num { font-family: "Baloo 2", sans-serif; font-size: 5rem; font-weight: 800; color: #fff; line-height: 1; }
+      .flash {
+        position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+        pointer-events: none; text-align: center; padding: 16px;
+      }
+      .flash[hidden] { display: none; }
+      .flash span {
+        font-family: "Baloo 2", sans-serif; font-weight: 800;
+        font-size: clamp(1.6rem, 5vw, 2.6rem); color: #fff;
+        text-shadow: 0 4px 24px rgba(0,0,0,.5);
+      }
+
+      /* ---------- Side panel ---------- */
+      .panel {
+        background: var(--surface); border: 1px solid var(--line);
+        border-radius: var(--radius); box-shadow: var(--shadow);
+        padding: 16px; display: grid; gap: 16px;
+      }
+      .panel h3 { font-family: "Baloo 2", sans-serif; margin: 0 0 6px; font-size: 1.05rem; }
+      .cambox {
+        position: relative; border-radius: 10px; overflow: hidden;
+        background: #0a0f1e; aspect-ratio: 4 / 3;
+      }
+      .cambox video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
+      .cambox .camoff {
+        position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+        color: #8fa0c2; font-size: .88rem; font-weight: 700; text-align: center; padding: 14px;
+      }
+      .cambox .handdot {
+        position: absolute; width: 18px; height: 18px; border-radius: 50%;
+        background: var(--amber); border: 3px solid #fff;
+        transform: translate(-50%, -50%); pointer-events: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,.45);
+      }
+      .cambox .handdot[hidden] { display: none; }
+      .status { font-size: .9rem; color: var(--ink-soft); display: flex; gap: 8px; align-items: flex-start; }
+      .status .dot { width: 10px; height: 10px; border-radius: 50%; background: #98a2ba; margin-top: 5px; flex: none; }
+      .status.live .dot { background: var(--good); }
+      .status.err .dot { background: var(--bad); }
+      .howto { margin: 0; padding-left: 18px; color: var(--ink-soft); font-size: .93rem; display: grid; gap: 5px; }
+      .howto b { color: var(--ink); }
+      .legend { display: grid; gap: 7px; font-size: .92rem; color: var(--ink-soft); }
+      .legend .row { display: flex; gap: 9px; align-items: center; }
+      .swatch { width: 26px; height: 26px; border-radius: 7px; flex: none; display: inline-flex; align-items: center; justify-content: center; font-family: "Baloo 2", sans-serif; font-weight: 800; color: #fff; font-size: .95rem; }
+      .sw-target { background: var(--teal); }
+      .sw-other { background: #54627f; }
+      footer { margin-top: 22px; color: var(--ink-soft); font-size: .88rem; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+      footer .brand { font-family: "Baloo 2", sans-serif; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Catch Letters of <span class="hl">Your Name</span></h1>
+      <p class="lede">Letters rain down — move your <strong>hand in front of the camera</strong> to slide the catcher and grab the letters of your name <strong>in order</strong>. No camera? Your mouse, finger, or arrow keys work too.</p>
+
+      <section class="setup" aria-label="Game setup">
+        <div class="field">
+          <label for="nameInput">Your name</label>
+          <input id="nameInput" type="text" value="Raas" maxlength="12" autocomplete="off" spellcheck="false" />
+          <div class="hint">Letters A–Z only, up to 10 letters. Make it yours — a kid&rsquo;s name, a birthday star, anyone.</div>
+        </div>
+        <div class="field">
+          <span class="lab" id="diffLab">Speed</span>
+          <div class="seg" role="radiogroup" aria-labelledby="diffLab">
+            <label><input type="radio" name="diff" value="chill" />Chill</label>
+            <label class="on"><input type="radio" name="diff" value="classic" checked />Classic</label>
+            <label><input type="radio" name="diff" value="turbo" />Turbo</label>
+          </div>
+          <div class="camrow" style="margin-top:10px;">
+            <label class="switch"><input type="checkbox" id="camToggle" checked /> Use my camera (hand control)</label>
+          </div>
+        </div>
+        <div>
+          <button class="btn btn-primary" id="startBtn" type="button">▶ Start game</button>
+        </div>
+      </section>
+
+      <div class="hud" aria-label="Scoreboard">
+        <span class="stat"><span class="k">Score</span> <span id="scoreVal">0</span></span>
+        <span class="stat"><span class="k">Best</span> <span id="bestVal">0</span></span>
+        <span class="stat"><span class="k">Level</span> <span id="levelVal">1</span></span>
+        <span class="stat"><span class="k">Streak</span> <span id="streakVal">0</span></span>
+        <span class="stat"><span class="k">Lives</span> <span class="hearts" id="heartsVal">♥♥♥</span></span>
+        <span class="spacer"></span>
+        <button class="iconbtn" id="soundBtn" type="button" aria-label="Toggle sound" title="Sound on/off">🔊</button>
+        <button class="iconbtn" id="pauseBtn" type="button" aria-label="Pause or resume" title="Pause / resume">⏸</button>
+      </div>
+
+      <div class="progress-row">
+        <span class="lab">Spell it:</span>
+        <div class="tiles" id="tiles"></div>
+        <span class="target-note" id="targetNote"></span>
+      </div>
+
+      <div class="layout">
+        <div>
+          <div class="stage-shell">
+            <canvas id="game" width="880" height="560" aria-label="Game board. Letters fall from the top; move the catcher to catch the highlighted letter of your name."></canvas>
+            <div class="ctrl-badge" id="ctrlBadge"><span class="dot"></span><span id="ctrlBadgeText">Waiting to start</span></div>
+            <div class="watermark">Raas <b>Services</b></div>
+
+            <div class="overlay" id="idleOverlay">
+              <h2>Ready when you are</h2>
+              <p>Type your name above, hold your hand up to the camera, and catch each letter of your name in order. Wrong letters and missed letters cost a heart — you have three.</p>
+              <button class="btn btn-primary" id="overlayStartBtn" type="button">▶ Start game</button>
+              <div class="wm">A Raas Services game</div>
+            </div>
+
+            <div class="overlay" id="countOverlay" hidden>
+              <div class="count-num" id="countNum">3</div>
+              <p>Get your hand ready…</p>
+            </div>
+
+            <div class="overlay" id="pauseOverlay" hidden>
+              <h2>Paused</h2>
+              <p>Take a breather. Your letters are frozen mid-air.</p>
+              <button class="btn btn-primary" id="resumeBtn" type="button">Resume</button>
+            </div>
+
+            <div class="overlay" id="overOverlay" hidden>
+              <h2 id="overTitle">Game over</h2>
+              <p id="overLine">Out of hearts!</p>
+              <div class="big-score" id="finalScore">0</div>
+              <p id="overStats"></p>
+              <button class="btn btn-primary" id="againBtn" type="button">↻ Play again</button>
+              <div class="wm">Made by Raas Services · Perth, WA</div>
+            </div>
+
+            <div class="flash" id="flash" hidden><span id="flashText"></span></div>
+          </div>
+        </div>
+
+        <aside class="panel" aria-label="Camera and help">
+          <div>
+            <h3>Your camera</h3>
+            <div class="cambox">
+              <video id="cam" playsinline muted></video>
+              <div class="camoff" id="camOff">Camera is off.<br />Start the game with the camera toggle on, or play with mouse / touch.</div>
+              <div class="handdot" id="handDot" hidden></div>
+            </div>
+            <p class="status" id="camStatus" style="margin-top:10px;"><span class="dot"></span><span id="camStatusText">Hand tracking hasn&rsquo;t started yet. Video stays on your device — nothing is uploaded.</span></p>
+          </div>
+          <div>
+            <h3>How to play</h3>
+            <ul class="howto">
+              <li><b>Move:</b> wave your hand left and right in front of the camera. The catcher follows your index finger.</li>
+              <li><b>Catch in order:</b> only the glowing letter counts next. It&rsquo;s the one lit up above.</li>
+              <li><b>Watch out:</b> catching a wrong letter, or letting your letter fall, costs a heart.</li>
+              <li><b>Finish your name</b> for a bonus and a faster next round.</li>
+              <li><b>No camera?</b> Move the mouse over the board, drag on touch screens, or use ← → keys.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Letter guide</h3>
+            <div class="legend">
+              <div class="row"><span class="swatch sw-target">A</span> The next letter of your name — catch it!</div>
+              <div class="row"><span class="swatch sw-other">Z</span> Any other letter — let it fall, catching it costs a heart.</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <footer>
+        <span>Built for playing, filming, and sharing — every round carries the mark.</span>
+        <span class="brand">Raas Services</span>
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+        var $ = function (id) { return document.getElementById(id); };
+
+        var canvas = $("game"), ctx = canvas.getContext("2d");
+        var W = 880, H = 560; // logical units
+        var DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+        function fitCanvas() {
+          var rect = canvas.getBoundingClientRect();
+          var scale = rect.width / W;
+          canvas.width = Math.round(W * scale * DPR);
+          canvas.height = Math.round(H * scale * DPR);
+          ctx.setTransform(canvas.width / W, 0, 0, canvas.width / W, 0, 0);
+        }
+        window.addEventListener("resize", fitCanvas);
+
+        /* ---------------- State ---------------- */
+        var DIFFS = {
+          chill:   { spawn: 1150, speed: 130, wrongRatio: 0.42, label: "Chill" },
+          classic: { spawn: 900,  speed: 185, wrongRatio: 0.5,  label: "Classic" },
+          turbo:   { spawn: 680,  speed: 255, wrongRatio: 0.58, label: "Turbo" }
+        };
+        var state = {
+          mode: "idle", // idle | count | play | pause | over
+          name: "RAAS",
+          letters: [],
+          particles: [],
+          floaters: [],
+          basketX: W / 2,
+          basketTargetX: W / 2,
+          handX: null, handY: null, handSeen: false,
+          pointerActive: false,
+          progress: 0,
+          score: 0, best: 0, level: 1, streak: 0, lives: 3,
+          namesDone: 0,
+          spawnTimer: 0,
+          shake: 0,
+          flashTimer: 0,
+          countT: 0,
+          elapsed: 0,
+          sound: true,
+          keys: { left: false, right: false }
+        };
+        var BASKET_W = 118, BASKET_H = 30;
+        var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        function cleanName(raw) {
+          var s = (raw || "").toUpperCase().replace(/[^A-Z]/g, "");
+          return s.slice(0, 10);
+        }
+        function currentDiff() {
+          var el = document.querySelector('input[name="diff"]:checked');
+          return DIFFS[el ? el.value : "classic"];
+        }
+        function targetLetter() {
+          return state.progress < state.name.length ? state.name[state.progress] : null;
+        }
+
+        /* ---------------- Sound (tiny synth) ---------------- */
+        var actx = null;
+        function ensureAudio() {
+          if (!actx) {
+            try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; }
+          }
+          if (actx && actx.state === "suspended") actx.resume();
+        }
+        function beep(freq, t, dur, type, vol, when) {
+          if (!actx || !state.sound) return;
+          var o = actx.createOscillator(), g = actx.createGain();
+          var start = actx.currentTime + (when || 0);
+          o.type = type || "sine"; o.frequency.value = freq;
+          g.gain.setValueAtTime(0.0001, start);
+          g.gain.exponentialRampToValueAtTime(vol || 0.15, start + 0.015);
+          g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+          o.connect(g); g.connect(actx.destination);
+          o.start(start); o.stop(start + dur + 0.05);
+        }
+        function sndCatch() { beep(660, 0, 0.12, "triangle", 0.18, 0); beep(990, 0, 0.16, "triangle", 0.16, 0.07); }
+        function sndWrong() { beep(160, 0, 0.22, "sawtooth", 0.10, 0); }
+        function sndMiss() { beep(300, 0, 0.15, "sine", 0.12, 0); beep(200, 0, 0.2, "sine", 0.12, 0.1); }
+        function sndWin() { [523, 659, 784, 1047].forEach(function (f, i) { beep(f, 0, 0.18, "triangle", 0.16, i * 0.09); }); }
+        function sndOver() { [392, 330, 262].forEach(function (f, i) { beep(f, 0, 0.22, "triangle", 0.14, i * 0.13); }); }
+
+        /* ---------------- HUD ---------------- */
+        function renderTiles() {
+          var t = $("tiles"); t.innerHTML = "";
+          for (var i = 0; i < state.name.length; i++) {
+            var d = document.createElement("div");
+            d.className = "tile" + (i < state.progress ? " done" : (i === state.progress && state.mode !== "over" ? " next" : ""));
+            d.textContent = state.name[i];
+            t.appendChild(d);
+          }
+          var tgt = targetLetter();
+          $("targetNote").textContent = state.mode === "over" ? "" :
+            (tgt ? "Next up: catch the letter " + tgt : "");
+        }
+        function renderHUD() {
+          $("scoreVal").textContent = state.score;
+          $("bestVal").textContent = state.best;
+          $("levelVal").textContent = state.level;
+          $("streakVal").textContent = state.streak;
+          var hearts = "";
+          for (var i = 0; i < 3; i++) hearts += i < state.lives ? "♥" : '<span class="off">♥</span>';
+          $("heartsVal").innerHTML = hearts;
+          renderTiles();
+        }
+        function showFlash(text, ms) {
+          $("flashText").textContent = text;
+          $("flash").hidden = false;
+          state.flashTimer = (ms || 1400) / 1000;
+        }
+
+        /* ---------------- Spawning ---------------- */
+        var ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        function spawnLetter() {
+          var diff = currentDiff();
+          var tgt = targetLetter();
+          var ch, isTarget = false;
+          var roll = Math.random();
+          if (tgt && roll > diff.wrongRatio) {
+            ch = tgt; isTarget = true;
+          } else {
+            // distractors: other letters of the name, or random letters
+            var pool = state.name.split("").filter(function (c) { return c !== tgt; });
+            if (pool.length && Math.random() < 0.45) ch = pool[Math.floor(Math.random() * pool.length)];
+            else ch = ALPHABET[Math.floor(Math.random() * 26)];
+            if (ch === tgt) { ch = ALPHABET[(ALPHABET.indexOf(ch) + 7) % 26]; }
+          }
+          var speedBoost = 1 + (state.level - 1) * 0.12;
+          state.letters.push({
+            ch: ch, isTarget: isTarget,
+            x: 44 + Math.random() * (W - 88),
+            y: -34,
+            vy: diff.speed * speedBoost * (0.85 + Math.random() * 0.35),
+            rot: (Math.random() - 0.5) * 0.22,
+            wob: Math.random() * Math.PI * 2
+          });
+        }
+
+        /* ---------------- Game flow ---------------- */
+        function setOverlay(id) {
+          ["idleOverlay", "countOverlay", "pauseOverlay", "overOverlay"].forEach(function (o) {
+            $(o).hidden = o !== id;
+          });
+          if (!id) ["idleOverlay", "countOverlay", "pauseOverlay", "overOverlay"].forEach(function (o) { $(o).hidden = true; });
+        }
+        function startGame() {
+          ensureAudio();
+          var name = cleanName($("nameInput").value);
+          if (!name) {
+            $("nameInput").value = "";
+            $("nameInput").placeholder = "Type a name first…";
+            $("nameInput").focus();
+            return;
+          }
+          $("nameInput").value = name;
+          state.name = name;
+          state.score = 0; state.level = 1; state.streak = 0; state.lives = 3;
+          state.progress = 0; state.namesDone = 0; state.elapsed = 0;
+          state.letters = []; state.particles = []; state.floaters = [];
+          state.spawnTimer = 0.3; state.shake = 0;
+          state.basketX = W / 2; state.basketTargetX = W / 2;
+          state.mode = "count"; state.countT = 3.2;
+          setOverlay("countOverlay");
+          $("countNum").textContent = "3";
+          renderHUD();
+          startCameraIfWanted();
+        }
+        function endGame() {
+          state.mode = "over";
+          state.best = Math.max(state.best, state.score);
+          sndOver();
+          $("overTitle").textContent = "Game over, " + titleCase(state.name) + "!";
+          $("overLine").textContent = state.namesDone > 0
+            ? "You spelled your name " + state.namesDone + (state.namesDone === 1 ? " time" : " times") + "."
+            : "So close — the letters got away this time.";
+          $("finalScore").textContent = state.score;
+          $("overStats").textContent = "Level " + state.level + " · " + Math.round(state.elapsed) + " seconds played · Best score " + state.best;
+          setOverlay("overOverlay");
+          renderHUD();
+        }
+        function titleCase(s) { return s.charAt(0) + s.slice(1).toLowerCase(); }
+
+        function completeName() {
+          state.namesDone++;
+          state.score += 250 + (state.level - 1) * 50;
+          state.progress = 0;
+          state.level++;
+          state.lives = Math.min(3, state.lives + 1);
+          sndWin();
+          burst(W / 2, H * 0.42, "#ffb627", 34);
+          showFlash("You spelled " + state.name + "!  Level " + state.level, 1600);
+        }
+
+        function loseLife(reason) {
+          state.lives--;
+          state.streak = 0;
+          if (!reducedMotion) state.shake = 0.35;
+          if (reason === "wrong") sndWrong(); else sndMiss();
+          if (state.lives <= 0) { renderHUD(); endGame(); }
+        }
+
+        /* ---------------- Particles & floaters ---------------- */
+        function burst(x, y, color, n) {
+          if (reducedMotion) n = Math.min(n, 6);
+          for (var i = 0; i < n; i++) {
+            var a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 190;
+            state.particles.push({
+              x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60,
+              life: 0.55 + Math.random() * 0.4, t: 0, color: color,
+              r: 2.5 + Math.random() * 3.5
+            });
+          }
+        }
+        function floater(x, y, text, color) {
+          state.floaters.push({ x: x, y: y, text: text, color: color, t: 0, life: 0.9 });
+        }
+
+        /* ---------------- Update ---------------- */
+        function update(dt) {
+          if (state.mode === "count") {
+            state.countT -= dt;
+            var n = Math.ceil(state.countT - 0.2);
+            $("countNum").textContent = state.countT <= 0.25 ? "GO!" : String(Math.max(1, n));
+            if (state.countT <= 0) { state.mode = "play"; setOverlay(null); }
+            return;
+          }
+          if (state.mode !== "play") return;
+          state.elapsed += dt;
+
+          // Basket movement: hand > pointer > keys
+          if (state.keys.left) state.basketTargetX -= 520 * dt;
+          if (state.keys.right) state.basketTargetX += 520 * dt;
+          state.basketTargetX = Math.max(BASKET_W / 2 + 6, Math.min(W - BASKET_W / 2 - 6, state.basketTargetX));
+          state.basketX += (state.basketTargetX - state.basketX) * Math.min(1, dt * 14);
+
+          // Spawn
+          state.spawnTimer -= dt;
+          if (state.spawnTimer <= 0) {
+            spawnLetter();
+            state.spawnTimer = currentDiff().spawn / 1000 * (0.8 + Math.random() * 0.45) / (1 + (state.level - 1) * 0.06);
+          }
+
+          var basketTop = H - 64;
+          for (var i = state.letters.length - 1; i >= 0; i--) {
+            var L = state.letters[i];
+            L.y += L.vy * dt;
+            L.wob += dt * 2.2;
+            L.x += Math.sin(L.wob) * 12 * dt;
+
+            var caught = L.y + 26 >= basketTop && L.y + 26 <= basketTop + 40 &&
+                         Math.abs(L.x - state.basketX) <= BASKET_W / 2 + 8;
+            if (caught) {
+              state.letters.splice(i, 1);
+              if (L.isTarget && L.ch === targetLetter()) {
+                state.progress++;
+                state.streak++;
+                var gain = 100 + Math.min(50, state.streak * 5);
+                state.score += gain;
+                sndCatch();
+                burst(L.x, basketTop, "#2fe08a", 16);
+                floater(L.x, basketTop - 18, "+" + gain, "#2fe08a");
+                if (state.progress >= state.name.length) completeName();
+              } else {
+                floater(L.x, basketTop - 18, "Wrong letter!", "#ff7a6b");
+                burst(L.x, basketTop, "#e5484d", 10);
+                loseLife("wrong");
+              }
+              renderHUD();
+              continue;
+            }
+            if (L.y - 30 > H) {
+              state.letters.splice(i, 1);
+              if (L.isTarget) {
+                floater(L.x, H - 110, "Missed " + L.ch + "!", "#ffb627");
+                loseLife("miss");
+                renderHUD();
+              }
+            }
+          }
+
+          // particles
+          for (var p = state.particles.length - 1; p >= 0; p--) {
+            var pt = state.particles[p];
+            pt.t += dt; pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vy += 320 * dt;
+            if (pt.t > pt.life) state.particles.splice(p, 1);
+          }
+          for (var f = state.floaters.length - 1; f >= 0; f--) {
+            var fl = state.floaters[f];
+            fl.t += dt; fl.y -= 44 * dt;
+            if (fl.t > fl.life) state.floaters.splice(f, 1);
+          }
+          if (state.shake > 0) state.shake -= dt;
+          if (state.flashTimer > 0) {
+            state.flashTimer -= dt;
+            if (state.flashTimer <= 0) $("flash").hidden = true;
+          }
+        }
+
+        /* ---------------- Draw ---------------- */
+        function roundRect(x, y, w, h, r) {
+          ctx.beginPath();
+          ctx.moveTo(x + r, y);
+          ctx.arcTo(x + w, y, x + w, y + h, r);
+          ctx.arcTo(x + w, y + h, x, y + h, r);
+          ctx.arcTo(x, y + h, x, y, r);
+          ctx.arcTo(x, y, x + w, y, r);
+          ctx.closePath();
+        }
+        function draw() {
+          ctx.save();
+          if (state.shake > 0 && !reducedMotion) {
+            ctx.translate((Math.random() - 0.5) * 20 * state.shake * 3, (Math.random() - 0.5) * 17 * state.shake * 3);
+          }
+          // backdrop
+          var g = ctx.createLinearGradient(0, 0, 0, H);
+          g.addColorStop(0, "#131f3d"); g.addColorStop(1, "#0c1428");
+          ctx.fillStyle = g; ctx.fillRect(-20, -20, W + 40, H + 40);
+          // faint dot grid
+          ctx.fillStyle = "rgba(255,255,255,0.05)";
+          for (var gx = 30; gx < W; gx += 46) for (var gy = 26; gy < H; gy += 46) {
+            ctx.beginPath(); ctx.arc(gx, gy, 1.6, 0, Math.PI * 2); ctx.fill();
+          }
+          // floor line
+          ctx.fillStyle = "rgba(255,182,39,0.20)";
+          ctx.fillRect(0, H - 40, W, 2);
+
+          // letters
+          state.letters.forEach(function (L) {
+            ctx.save();
+            ctx.translate(L.x, L.y);
+            ctx.rotate(L.rot);
+            var isNext = L.isTarget;
+            ctx.shadowColor = isNext ? "rgba(14,149,148,.8)" : "rgba(0,0,0,.4)";
+            ctx.shadowBlur = isNext ? 18 : 8;
+            ctx.shadowOffsetY = 3;
+            roundRect(-27, -27, 54, 54, 13);
+            ctx.fillStyle = isNext ? "#0e9594" : "#3c4a68";
+            ctx.fill();
+            ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = isNext ? "#5fd4d2" : "#5a6c92";
+            ctx.stroke();
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "800 30px 'Baloo 2', sans-serif";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(L.ch, 0, 2);
+            ctx.restore();
+          });
+
+          // hand cursor dot
+          if (state.handSeen && (state.mode === "play" || state.mode === "count")) {
+            ctx.beginPath();
+            ctx.arc(state.handX, state.handY, 10, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255,182,39,.9)"; ctx.fill();
+            ctx.lineWidth = 3; ctx.strokeStyle = "#fff"; ctx.stroke();
+          }
+
+          // basket / catcher
+          var bx = state.basketX, by = H - 64;
+          ctx.save();
+          ctx.translate(bx, by);
+          ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4;
+          roundRect(-BASKET_W / 2, 0, BASKET_W, BASKET_H, 12);
+          var bg2 = ctx.createLinearGradient(0, 0, 0, BASKET_H);
+          bg2.addColorStop(0, "#ff6a4d"); bg2.addColorStop(1, "#e8482a");
+          ctx.fillStyle = bg2; ctx.fill();
+          ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+          ctx.lineWidth = 2.5; ctx.strokeStyle = "#ffb59f"; ctx.stroke();
+          // handles
+          ctx.beginPath();
+          ctx.moveTo(-BASKET_W / 2 + 8, 2); ctx.quadraticCurveTo(-BASKET_W / 2 - 10, -14, -BASKET_W / 2 + 14, -16);
+          ctx.moveTo(BASKET_W / 2 - 8, 2); ctx.quadraticCurveTo(BASKET_W / 2 + 10, -14, BASKET_W / 2 - 14, -16);
+          ctx.lineWidth = 5; ctx.strokeStyle = "#ffb627"; ctx.stroke();
+          ctx.fillStyle = "#fff";
+          ctx.font = "800 15px 'Baloo 2', sans-serif";
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          var tgt = targetLetter();
+          ctx.fillText(tgt ? "catch " + tgt : "★", 0, BASKET_H / 2 + 1);
+          ctx.restore();
+
+          // particles
+          state.particles.forEach(function (pt) {
+            ctx.globalAlpha = Math.max(0, 1 - pt.t / pt.life);
+            ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+            ctx.fillStyle = pt.color; ctx.fill();
+          });
+          ctx.globalAlpha = 1;
+
+          // floaters
+          state.floaters.forEach(function (fl) {
+            ctx.globalAlpha = Math.max(0, 1 - fl.t / fl.life);
+            ctx.font = "800 21px 'Baloo 2', sans-serif";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillStyle = fl.color;
+            ctx.fillText(fl.text, fl.x, fl.y);
+          });
+          ctx.globalAlpha = 1;
+          ctx.restore();
+        }
+
+        var lastTs = 0;
+        function loop(ts) {
+          var dt = Math.min(0.05, (ts - lastTs) / 1000 || 0);
+          lastTs = ts;
+          update(dt);
+          draw();
+          requestAnimationFrame(loop);
+        }
+
+        /* ---------------- Input: pointer & keys ---------------- */
+        function stagePoint(evt) {
+          var rect = canvas.getBoundingClientRect();
+          var cx = (evt.touches ? evt.touches[0].clientX : evt.clientX);
+          return { x: (cx - rect.left) / rect.width * W };
+        }
+        canvas.addEventListener("pointermove", function (e) {
+          state.basketTargetX = stagePoint(e).x;
+          state.pointerActive = true;
+        });
+        canvas.addEventListener("touchmove", function (e) { e.preventDefault(); }, { passive: false });
+        window.addEventListener("keydown", function (e) {
+          if (e.key === "ArrowLeft") state.keys.left = true;
+          if (e.key === "ArrowRight") state.keys.right = true;
+          if (e.key === " " && state.mode === "play") { e.preventDefault(); togglePause(); }
+        });
+        window.addEventListener("keyup", function (e) {
+          if (e.key === "ArrowLeft") state.keys.left = false;
+          if (e.key === "ArrowRight") state.keys.right = false;
+        });
+
+        /* ---------------- Camera + MediaPipe Hands ---------------- */
+        var video = $("cam");
+        var hands = null, mpCamera = null, camStarted = false;
+        function setCamStatus(kind, text) {
+          var box = $("camStatus");
+          box.className = "status" + (kind ? " " + kind : "");
+          $("camStatusText").textContent = text;
+        }
+        function setBadge(on, text) {
+          $("ctrlBadge").classList.toggle("on", !!on);
+          $("ctrlBadgeText").textContent = text;
+        }
+        function onHandResults(results) {
+          var dot = $("handDot");
+          if (results.multiHandLandmarks && results.multiHandLandmarks.length) {
+            var tip = results.multiHandLandmarks[0][8]; // index fingertip
+            var palm = results.multiHandLandmarks[0][9];
+            var use = tip || palm;
+            state.handSeen = true;
+            state.handX = (1 - use.x) * W;
+            state.handY = use.y * H;
+            state.basketTargetX = state.handX;
+            dot.hidden = false;
+            dot.style.left = ((1 - use.x) * 100) + "%";
+            dot.style.top = (use.y * 100) + "%";
+            setBadge(true, "Hand control live");
+          } else {
+            state.handSeen = false;
+            dot.hidden = true;
+            if (camStarted) setBadge(false, "Show your hand to the camera");
+          }
+        }
+        function startCameraIfWanted() {
+          if (!$("camToggle").checked) {
+            setBadge(false, "Mouse / touch control");
+            setCamStatus("", "Camera is off for this game — mouse, touch, and arrow keys control the catcher.");
+            return;
+          }
+          if (camStarted) { setBadge(state.handSeen, state.handSeen ? "Hand control live" : "Show your hand to the camera"); return; }
+          if (typeof Hands === "undefined") {
+            setCamStatus("err", "Hand-tracking library couldn't load (check your connection). Mouse and touch still work.");
+            setBadge(false, "Mouse / touch control");
+            return;
+          }
+          setCamStatus("", "Starting camera… allow access when your browser asks.");
+          try {
+            hands = new Hands({ locateFile: function (f) { return "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + f; } });
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+            hands.onResults(onHandResults);
+            var onFrame = function () { return hands.send({ image: video }); };
+            if (typeof Camera !== "undefined") {
+              mpCamera = new Camera(video, { onFrame: onFrame, width: 640, height: 480 });
+              mpCamera.start().then(function () {
+                camStarted = true;
+                $("camOff").style.display = "none";
+                setCamStatus("live", "Camera on. Hold your hand up, palm facing the camera, and move it left and right. Video is processed on your device only.");
+                setBadge(false, "Show your hand to the camera");
+              }).catch(function () {
+                setCamStatus("err", "Camera access was blocked. Allow camera permission, or play with mouse / touch instead.");
+                setBadge(false, "Mouse / touch control");
+              });
+            } else {
+              navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false }).then(function (stream) {
+                video.srcObject = stream;
+                video.play();
+                camStarted = true;
+                $("camOff").style.display = "none";
+                setCamStatus("live", "Camera on. Hold your hand up and move it left and right. Video is processed on your device only.");
+                (function pump() { if (video.readyState >= 2) onFrame(); requestAnimationFrame(pump); })();
+              }).catch(function () {
+                setCamStatus("err", "Camera access was blocked. Allow camera permission, or play with mouse / touch instead.");
+                setBadge(false, "Mouse / touch control");
+              });
+            }
+          } catch (err) {
+            setCamStatus("err", "Hand tracking couldn't start on this device. Mouse and touch still work.");
+            setBadge(false, "Mouse / touch control");
+          }
+        }
+
+        /* ---------------- Buttons ---------------- */
+        function togglePause() {
+          if (state.mode === "play") {
+            state.mode = "pause"; setOverlay("pauseOverlay"); $("pauseBtn").textContent = "▶";
+          } else if (state.mode === "pause") {
+            state.mode = "play"; setOverlay(null); $("pauseBtn").textContent = "⏸";
+          }
+        }
+        $("startBtn").addEventListener("click", startGame);
+        $("overlayStartBtn").addEventListener("click", startGame);
+        $("againBtn").addEventListener("click", startGame);
+        $("resumeBtn").addEventListener("click", togglePause);
+        $("pauseBtn").addEventListener("click", function () {
+          if (state.mode === "play" || state.mode === "pause") togglePause();
+        });
+        $("soundBtn").addEventListener("click", function () {
+          state.sound = !state.sound;
+          this.textContent = state.sound ? "🔊" : "🔇";
+          if (state.sound) ensureAudio();
+        });
+        $("nameInput").addEventListener("input", function () {
+          if (state.mode === "idle" || state.mode === "over") {
+            var n = cleanName(this.value);
+            if (n) { state.name = n; renderHUD(); }
+          }
+        });
+        function syncSeg() {
+          document.querySelectorAll('input[name="diff"]').forEach(function (r) {
+            r.closest("label").classList.toggle("on", r.checked);
+          });
+        }
+        document.querySelectorAll('input[name="diff"]').forEach(function (r) {
+          r.addEventListener("change", syncSeg);
+        });
+
+        /* ---------------- Init ---------------- */
+        fitCanvas();
+        setTimeout(fitCanvas, 60);
+        syncSeg();
+        renderHUD();
+        requestAnimationFrame(loop);
+      })();
+    </script>
+  </body>
+</html>
